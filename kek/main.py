@@ -1059,10 +1059,13 @@ async def show_perfume(callback: CallbackQuery, state: FSMContext):
     )
 
     # 📸 ОДИН раз отправляем photo2 и сохраняем message_id
+    photo_path = BASE_DIR / perfume["photo2"]
+    if not photo_path.exists():
+        await callback.message.answer("Фото не найдено 😢")
+        await callback.answer()
+        return
     photo_msg = await callback.message.answer_photo(
-        photo=FSInputFile(perfume["photo2"])
-    )
-
+    photo=FSInputFile(photo_path))
     await state.update_data(order_photo_id=photo_msg.message_id)
 
     # 📝 длинное описание отдельным сообщением
@@ -1139,9 +1142,13 @@ async def search_open(callback: CallbackQuery, state: FSMContext):
         back_view="search",
         back_index=index
     )
+    photo_path = BASE_DIR / perfume["photo2"]
+    if not photo_path.exists():
+        await callback.message.answer("Фото не найдено 😢")
+        await callback.answer()
+        return
     photo_msg = await callback.message.answer_photo(
-    photo=FSInputFile(perfume["photo2"])
-)
+    photo=FSInputFile(photo_path))
     await state.update_data(order_photo_id=photo_msg.message_id)
 
 
@@ -1418,9 +1425,13 @@ async def category_open(callback: CallbackQuery, state: FSMContext):
         back_index=index,
         back_prefix=category_type
     )
+    photo_path = BASE_DIR / perfume["photo2"]
+    if not photo_path.exists():
+        await callback.message.answer("Фото не найдено 😢")
+        await callback.answer()
+        return
     photo_msg = await callback.message.answer_photo(
-    photo=FSInputFile(perfume["photo2"])
-)  
+    photo=FSInputFile(photo_path))
     await state.update_data(order_photo_id=photo_msg.message_id)
 
 
