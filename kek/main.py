@@ -27,7 +27,9 @@ import requests
 from aiogram import Router
 import aiohttp
 router = Router()
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
 #import requests
 #FLASK_URL = "http://127.0.0.1:5000/"
 user_favorites = {}
@@ -104,8 +106,10 @@ async def resize_photo(photo_path: str, max_size: tuple = (1000, 1000),
     border_radius: радиус скругления углов
     shadow_offset: смещение тени
     """
+    full_path = BASE_DIR / photo_path
     # Открываем изображение
-    with Image.open(photo_path) as img:
+    #photo_path
+    with Image.open(full_path) as img:
         # Конвертируем RGBA в RGB если нужно
         if img.mode in ('RGBA', 'LA', 'P'):
             # Создаем белый фон для прозрачных изображений
