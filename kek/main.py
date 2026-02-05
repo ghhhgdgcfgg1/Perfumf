@@ -28,8 +28,8 @@ from aiogram import Router
 import aiohttp
 router = Router()
 from pathlib import Path
-
 BASE_DIR = Path(__file__).resolve().parent
+PHOTOS_DIR = BASE_DIR / "photos"
 #import requests
 #FLASK_URL = "http://127.0.0.1:5000/"
 user_favorites = {}
@@ -179,6 +179,13 @@ async def resize_photo(photo_path: str, max_size: tuple = (1000, 1000),
         final_img.save(temp_path, "PNG", quality=95, optimize=True)
         
         return FSInputFile(temp_path)
+def get_photo_input(photo_name: str) -> FSInputFile:
+    path = PHOTOS_DIR / photo_name
+
+    if not path.exists():
+        raise FileNotFoundError(f"Фото не найдено: {path}")
+
+    return FSInputFile(path)
 
 def order_keyboard(source: str, index: int):
     kb = InlineKeyboardBuilder()
