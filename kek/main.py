@@ -657,10 +657,10 @@ async def fav_remove(callback: CallbackQuery, state: FSMContext):
         items = [p for p in perfumes if p["id"] in user_favorites.get(uid, set())]
 
         if not items:
-            await callback.message.edit_caption(
-                caption="😔 У вас больше нет избранных ароматов",
-                reply_markup=None
-            )
+            await callback.message.delete()
+            await callback.message.answer(
+        "😔 У вас больше нет избранных ароматов"
+    )
             await callback.answer("Избранное пусто")
             return
 
