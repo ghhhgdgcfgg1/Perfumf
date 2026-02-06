@@ -202,67 +202,62 @@ def order_keyboard(source: str, index: int):
 
     kb.adjust(1)
     return kb.as_markup()
+
 @dp.callback_query(F.data.startswith("order_back:"))
 async def order_back(callback: CallbackQuery, state: FSMContext):
     _, source, index = callback.data.split(":")
     index = int(index)
     data = await state.get_data()
-    photo_id = data.get("order_photo_id")
-    
-    # Удаляем сообщение "Сделать заказ"
-    await callback.message.delete()
-    
-    # Если фото есть, удаляем старое фото
-    if photo_id:
-        await callback.bot.delete_message(
-            chat_id=callback.message.chat.id,
-            message_id=photo_id
-        )
-    
-    # Очищаем данные о фото
-    await state.update_data(order_photo_id=None)
 
-    # Удаляем старое сообщение с пагинацией
-    prev_message_id = data.get("order_message_id")
-    if prev_message_id:
+    # 🧹 удаляем ТОЛЬКО photo2 (которое показывалось в "Подробнее")
+    photo_id = data.get("order_photo_id")
+    if photo_id:
         try:
             await callback.bot.delete_message(
                 chat_id=callback.message.chat.id,
-                message_id=prev_message_id
+                message_id=photo_id
             )
-        except Exception as e:
-            print(f"Error deleting previous message: {e}")
+        except:
+            pass
+        await state.update_data(order_photo_id=None)
 
     # 🔙 КАТАЛОГ
     if source == "catalog":
         perfume = perfumes[index]
         framed = await resize_photo(perfume["photo"])
 
-        # Отправляем новую карточку товара с пагинацией
-        new_message = await callback.message.answer_photo(
-            framed,
-            caption=(f"<b>{perfume['name']}</b>\n"
-                     f"Пол: {perfume['category']}\n"
-                     f"Объём: {perfume['volume']}"),
-            parse_mode="HTML",
-            reply_markup=catalog_card_keyboard(index, callback.from_user.id)
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=framed,
+                caption=(
+                    f"<b>{perfume['name']}</b>\n"
+                    f"Пол: {perfume['category']}\n"
+                    f"Объём: {perfume['volume']}"
+                ),
+                parse_mode="HTML"
+            ),
+            reply_markup=catalog_card_keyboard(
+                index,
+                callback.from_user.id
+            )
         )
-
-        # Сохраняем message_id нового сообщения
-        await state.update_data(order_message_id=new_message.message_id)
 
     # 🔙 КАТЕГОРИЯ
     elif source == "category":
         items = data.get("cat_items", [])
         perfume = items[index]
-
         framed = await resize_photo(perfume["photo"])
 
-        # Отправляем новую карточку товара с пагинацией
-        new_message = await callback.message.answer_photo(
-            framed,
-            caption=f"<b>{perfume['name']}</b>",
-            parse_mode="HTML",
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=framed,
+                caption=(
+                    f"<b>{perfume['name']}</b>\n"
+                    f"Пол: {perfume.get('category', 'не указано')}\n"
+                    f"Объём: {perfume.get('volume', 'не указано')}"
+                ),
+                parse_mode="HTML"
+            ),
             reply_markup=category_card_keyboard(
                 index,
                 len(items),
@@ -272,21 +267,22 @@ async def order_back(callback: CallbackQuery, state: FSMContext):
             )
         )
 
-        # Сохраняем message_id нового сообщения
-        await state.update_data(order_message_id=new_message.message_id)
-
     # 🔙 ПОИСК
     elif source == "search":
         results = data.get("search_results", [])
         perfume = results[index]
-
         framed = await resize_photo(perfume["photo"])
 
-        # Отправляем новую карточку товара с пагинацией
-        new_message = await callback.message.answer_photo(
-            framed,
-            caption=f"<b>{perfume['name']}</b>",
-            parse_mode="HTML",
+        await callback.message.edit_media(
+            media=InputMediaPhoto(
+                media=framed,
+                caption=(
+                    f"<b>{perfume['name']}</b>\n"
+                    f"Пол: {perfume.get('category', 'не указано')}\n"
+                    f"Объём: {perfume.get('volume', 'не указано')}"
+                ),
+                parse_mode="HTML"
+            ),
             reply_markup=search_card_keyboard(
                 index,
                 len(results),
@@ -294,9 +290,6 @@ async def order_back(callback: CallbackQuery, state: FSMContext):
                 perfume
             )
         )
-
-        # Сохраняем message_id нового сообщения
-        await state.update_data(order_message_id=new_message.message_id)
 
     await callback.answer()
 
