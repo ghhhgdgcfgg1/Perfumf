@@ -687,7 +687,8 @@ async def fav_navigation(callback: CallbackQuery):
 
 
 @dp.message(F.text == "⭐ Избранное")
-async def show_favorites(message: Message):
+async def show_favorites(message: Message, state: FSMContext):
+    await state.clear()
     uid = message.from_user.id
     fav_ids = list(user_favorites.get(uid, set()))
 
@@ -823,7 +824,8 @@ async def update_fav_keyboard(callback, state: FSMContext, source, index, uid):
 
 
 @dp.message(F.text == "📦 Посмотреть весь каталог")
-async def catalog_start(message: Message):
+async def catalog_start(message: Message, state: FSMContext):
+    await state.clear()
     perfume = perfumes[0]
 
     # Используем фото со стильной рамкой
@@ -903,7 +905,8 @@ def search_card_keyboard(index: int, total: int, telegram_id: int, perfume):
 
 
 @dp.message(F.text == "/start")
-async def start(message: Message):
+async def start(message: Message, state: FSMContext):
+    await state.clear()
     text = """🌸 <b>Добро пожаловать в мир изысканных ароматов!</b> 🌸
 Вы любите качественный парфюм, но не готовы переплачивать? У Нас — идеальное решение: премиальные ароматы, но по приятной цене. А также нишевая линейка ароматов от известного бренда.
 
@@ -953,7 +956,8 @@ async def back_to_start(callback: CallbackQuery):
     await callback.answer()
 
 @dp.message(Command("catalog"))
-async def catalog_command(message: Message):
+async def catalog_command(message: Message, state: FSMContext):
+    await state.clear()
     kb = InlineKeyboardBuilder()
     for p in perfumes:
         kb.button(text=p["name"], callback_data=f"perf_{p['id']}")
@@ -968,23 +972,18 @@ async def catalog_command(message: Message):
 
 
 @dp.message(Command("categories"))
-async def show_categories_command(message: Message):
+async def show_categories_command(message: Message, state: FSMContext):
+    await state.clear()
     await message.answer(
         "📂 В данном разделе Вы сможете выбрать нужную категорию ароматов:",
         reply_markup=categories_keyboard()
     )
 
 # Обработчики выбора типа поиска
-"""
-@dp.callback_query(F.data == "search_by_name")
-async def search_by_name_handler(callback: CallbackQuery, state: FSMContext):
-    await state.set_state(SearchState.waiting_query)
-    await callback.message.edit_text("Поиск по названию Вашего любимого аромата известного бренда либо по названию аромата нашего бренда. Введите название:")
-    await callback.answer()
-"""
 
 @dp.callback_query(F.data.startswith("cat_gender_"))
 async def show_gender_category_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     gender_type = callback.data.replace("cat_gender_", "")
     
     # Маппинг callback-данных на значения категорий
@@ -1152,7 +1151,8 @@ async def category_navigation_handler(callback: CallbackQuery, state: FSMContext
     await callback.answer()
 
 @dp.message(F.text == "📂 Категории")
-async def show_categories(message: Message):
+async def show_categories(message: Message, state: FSMContext):
+    await state.clear()
     await message.answer(
         "📂 В данном разделе Вы сможете выбрать нужную категорию ароматов:",
         reply_markup=categories_keyboard()
@@ -1304,26 +1304,28 @@ async def search_open(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 # Обработчики поиска по разным типам
-@dp.message(
-    SearchState.waiting_query,~F.text.in_(["🔍 Поиск"]))
+@dp.message(SearchState.waiting_query)
 async def search_by_name_handler(message: Message, state: FSMContext):
-    # защита от повторного нажатия кнопки
+    text = (message.text or "").strip()
 
-    query = message.text.strip().lower()
+    # ✅ Если снова нажали кнопку "🔍 Поиск" во время поиска — НЕ ищем, а просто подсказываем
+    if text == "🔍 Поиск":
+        await message.answer("🔍 Вы уже находитесь в поиске.\nВведите название аромата:")
+        return
+
+    query = text.lower()
 
     # защита от пустого ввода
     if not query:
-        await message.answer("Введите текст для поиска:")
+        await message.answer("Введите название аромата для поиска:")
         return
 
     results = search_perfumes(query)
 
-    # ❌ Ничего не найдено
+    # ❌ Ничего не найдено — остаёмся в поиске и просим ввести ещё раз
     if not results:
-        await message.answer(
-            """Поиск по названию Вашего любимого аромата известного бренда либо по названию аромата нашего бренда. Введите название:"""
-        )
-        return  # ⬅️ ВАЖНО: сразу выходим
+        await message.answer("😔 По Вашему запросу ничего не найдено. Попробуйте ещё раз:")
+        return
 
     # ✅ Есть результаты
     perfume = results[0]
@@ -1346,18 +1348,14 @@ async def search_by_name_handler(message: Message, state: FSMContext):
             f"Пол: {perfume.get('category', 'не указано')}\n"
             f"Объём: {perfume.get('volume', 'не указано')}"
         ),
-        reply_markup=search_card_keyboard(
-            0,
-            len(results),
-            message.from_user.id,
-            perfume
-        ),
+        reply_markup=search_card_keyboard(0, len(results), message.from_user.id, perfume),
         parse_mode="HTML"
     )
 
 
 @dp.callback_query(F.data == "back")
-async def back(callback: CallbackQuery):
+async def back(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.answer(
         "В данном разделе Вы сможете выбрать нужную категорию ароматов:",
         reply_markup=categories_keyboard()
@@ -1367,12 +1365,12 @@ async def search_reply(message: Message, state: FSMContext):
     current_state = await state.get_state()
 
     if current_state == SearchState.waiting_query:
-        await message.answer("Поиск по названию Вашего любимого аромата известного бренда либо по названию аромата нашего бренда. Введите название:")
+        await message.answer("🔍 Вы уже находитесь в поиске.\nВведите название аромата:")
         return
 
     await state.set_state(SearchState.waiting_query)
     await message.answer(
-        "Поиск по названию Вашего любимого аромата известного бренда либо по названию аромата нашего бренда. Введите название:\n\n",
+        "Поиск по названию Вашего любимого аромата известного бренда либо по названию аромата нашего бренда. Введите название:",
         parse_mode="HTML"
     )
 
@@ -1425,6 +1423,7 @@ async def category_navigation_handler(callback: CallbackQuery, state: FSMContext
 
 @dp.callback_query(F.data.regexp(r"^nav_(prev|next)_\d+$"))
 async def catalog_navigation(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     parts = callback.data.split("_")
     
     if len(parts) != 3:
@@ -1519,6 +1518,7 @@ def category_card_keyboard(index: int, total: int, prefix: str, perfume, telegra
 
 @dp.callback_query(F.data.startswith("cat_scent_"))
 async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     scent_map = {
         "floral": "цветочные",
         "citrus": "цитрусовые",
