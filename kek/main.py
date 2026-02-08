@@ -32,7 +32,7 @@ from aiogram.exceptions import TelegramBadRequest
 router = Router()
 from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
-PHOTOS_DIR = BASE_DIR / "photos"
+#PHOTOS_DIR = BASE_DIR / "photos"
 #import requests
 #FLASK_URL = "http://127.0.0.1:5000/"
 user_favorites = {}
@@ -131,6 +131,8 @@ async def resize_photo(photo_path: str, max_size: tuple = (1000, 1000),
     full_path = BASE_DIR / photo_path
     # Открываем изображение
     #photo_path
+    if not full_path.exists():
+        raise FileNotFoundError(f"Фото не найдено: {full_path}")
     with Image.open(full_path) as img:
         # Конвертируем RGBA в RGB если нужно
         if img.mode in ('RGBA', 'LA', 'P'):
@@ -201,6 +203,7 @@ async def resize_photo(photo_path: str, max_size: tuple = (1000, 1000),
         final_img.save(temp_path, "PNG", quality=95, optimize=True)
         
         return FSInputFile(temp_path)
+"""
 def get_photo_input(photo_name: str) -> FSInputFile:
     path = PHOTOS_DIR / photo_name
 
@@ -208,7 +211,7 @@ def get_photo_input(photo_name: str) -> FSInputFile:
         raise FileNotFoundError(f"Фото не найдено: {path}")
 
     return FSInputFile(path)
-
+"""
 def order_keyboard(source: str, index: int):
     kb = InlineKeyboardBuilder()
 
@@ -1519,10 +1522,11 @@ def category_card_keyboard(index: int, total: int, prefix: str, perfume, telegra
 @dp.callback_query(F.data.startswith("cat_scent_"))
 async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
+
     scent_map = {
         "floral": "цветочные",
         "citrus": "цитрусовые",
-        "niche":"нишевые",
+        "niche": "нишевые",
         "woody": "древесные",
         "oriental": "восточные",
         "fruity": "фруктовые",
@@ -1536,7 +1540,7 @@ async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext
 
     category = scent_map[key]
     category_lower = category.casefold()
-    
+
     items = []
     for p in perfumes:
         scent_data = p.get("scent_category", "")
@@ -1547,7 +1551,7 @@ async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext
             for scent_item in scent_data:
                 if isinstance(scent_item, str) and category_lower in scent_item.casefold():
                     items.append(p)
-                    break  
+                    break
 
     if not items:
         await callback.message.answer("😔 В этой категории пока нет товаров")
@@ -1556,9 +1560,15 @@ async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext
 
     await state.update_data(cat_items=items, cat_index=0)
 
-    perfume = items[0]
-    
-    # Добавляем информацию о поле и объеме
+    perfume = items[0]  # ✅ ВАЖНО: сначала объявили
+
+    photo_path = BASE_DIR / perfume["photo"]  # ✅ теперь можно
+
+    if not photo_path.exists():
+        await callback.message.answer("Фото не найдено 😢")
+        await callback.answer()
+        return
+
     caption = (
         f"<b>{perfume['name']}</b>\n"
         f"Пол: {perfume.get('category', 'не указано')}\n"
@@ -1566,20 +1576,20 @@ async def show_scent_category_handler(callback: CallbackQuery, state: FSMContext
     )
 
     await callback.message.answer_photo(
-        photo=FSInputFile(perfume["photo"]),
+        photo=FSInputFile(photo_path),
         caption=caption,
         reply_markup=category_card_keyboard(
-    0,
-    len(items),
-    "scent",
-    perfume,
-    callback.from_user.id
-),
-
+            0,
+            len(items),
+            "scent",
+            perfume,
+            callback.from_user.id
+        ),
         parse_mode="HTML",
     )
 
     await callback.answer()
+
 
 @dp.callback_query(F.data.startswith("cat_open_"))
 async def category_open(callback: CallbackQuery, state: FSMContext):
